@@ -1,0 +1,109 @@
+#!/bin/bash
+
+# This script is generating random passwords.
+log () {
+	local MESSAGE=${@}
+	shift
+	if [[ "${VERBOSE}" == true ]]
+	then 
+		echo "${MESSAGE}."
+	fi
+}
+usage() {
+	echo "Usage: ${0}  [OPTION] [USER...]"
+	echo "-s to add special charecter to password.."
+	echo "-l to specify the length of the password.."
+	echo "-v verbose of the output.."
+	exit 1
+}
+LENGTH='10'
+#
+#Check script executing user root or not.
+if [[ "${UID}" -ne 0 ]]
+then
+	echo "You are not the root user."
+	exit 1
+fi
+
+#Exit if no argument provided 
+if [[ "${#}" -eq 1 ]]
+then
+	usage
+	exit 1
+fi
+
+if [[ "${#}" -eq 0 ]]
+then
+	usage
+	exit 1
+fi
+
+while getopts sl:v OPTION
+do
+  case ${OPTION} in
+   s) 
+	SPECIAL_CHA='true'
+	;;
+   l) 
+	LENGTH="${OPTARG}" 
+	;;
+   v) 
+	VERBOSE='true'
+	echo "Verbose mode ON.."	
+   	;;
+   ?) 
+	usage 
+	;;
+  esac
+done	
+
+echo "Optarg value is:  ${LENGTH}"
+RANDOM_PASSWORD=$(date +%N | sha256sum | head -c${LENGTH})
+RANDOM_SPECIAL_CHAR=$(echo '-_+)(*&^%$#@!{}' | fold -w1 | shuf -n 1)
+shift
+USER=${1}
+shift
+COMMENT=${@}
+log 'Creating the User..'
+
+useradd -c "${COMMENT}" -d /home01/${USER} ${USER} >&2
+
+if [[ "${?}" -eq 0 ]]
+then
+	log 'User has been added successfully..'
+else
+	exit 1
+fi
+
+if [[ "${SPECIAL_CHA}" == 'true' ]]
+then
+	PASS="${RANDOM_PASSWORD}${RANDOM_SPECIAL_CHAR}"
+else
+	PASS="${RANDOM_PASSWORD}"
+fi
+
+echo "${PASS}" | passwd ${USER} --stdin &> /dev/null
+if [[ ${?} -eq 0 ]]
+then
+	log "Password has been set to ${USER}.."
+else
+	log "Password not set to user ${USER}.." >&2	
+	exit 1
+fi
+
+log "Setting password to be change at first login"
+
+passwd -e ${USER} &> /dev/null
+
+if [[ "${?}" -ne 0 ]]
+then 
+	exit 1
+fi
+
+if [[ "${?}" -eq 0 ]]
+then
+	echo "Below are the User details: "
+	echo
+	echo "Username: ${USER}"
+	echo "Password: ${PASS}"
+fi
