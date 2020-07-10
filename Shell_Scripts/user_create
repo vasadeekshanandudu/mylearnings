@@ -1,5 +1,5 @@
 #!/bin/bash
-
+#TO debug you can add -xev at the end of above line(/bin/bash)
 # This script is generating random passwords.
 log () {
 	local MESSAGE=${@}
